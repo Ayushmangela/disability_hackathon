@@ -1,0 +1,9 @@
+numpy==1.26.4
+mediapipe==0.10.14
+tensorflow==2.15.0
+cvzone==1.6.1
+opencv-contrib-python==4.9.0.80
+playsound
+twilio
+face_recognition
+pyttsx3
