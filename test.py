@@ -10,12 +10,15 @@ import face_recognition
 import os
 import threading
 
-# ========================== CAMERA & DETECTORS ==========================
+# ========================== PATHS, CAMERA & DETECTORS ==========================
+BASE_DIR = os.getcwd()
+FACES_ROOT = os.path.join(BASE_DIR, "Data", "faces")  # sub folder for each person
+
 cap = cv2.VideoCapture(0)
 hand_detector = HandDetector(maxHands=1)
 
 # ========================== FACE RECOGNITION ==========================
-faces_path = r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Data\faces" #sub folder for each person 
+faces_path = FACES_ROOT
 images = []
 classNames = []
 if not os.path.exists(faces_path):  #Checks if the face data folder exists. if not then creates it 

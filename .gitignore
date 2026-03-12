@@ -7,3 +7,9 @@ encodings.pkl
 gesture_log.csv
 *.wav
 *.mp3
+.venv/
+.venv310/
+node_modules/
+frontend/node_modules/
+.env
+.DS_Store

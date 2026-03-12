@@ -6,14 +6,21 @@ import math
 import time
 from playsound import playsound    
 from twilio.rest import Client   
-import face_recognition
 import os
 import threading
 import csv
 from datetime import datetime
 
-# ========================== CSV LOGGING ==========================
-log_file = os.path.join(os.getcwd(), "gesture_log.csv")
+# ========================== PATHS & CSV LOGGING ==========================
+BASE_DIR = os.getcwd()
+MODEL_DIR = os.path.join(BASE_DIR, "Model")
+# root folder; each subfolder (e.g. "ayush") is treated as one person
+FACES_DIR = os.path.join(BASE_DIR, "Data", "faces")
+EXTRA_FACES_DIR = os.path.join(BASE_DIR, "not_used_face_data")
+KERAS_MODEL_PATH = os.path.join(MODEL_DIR, "keras_model.h5")
+LABELS_PATH = os.path.join(MODEL_DIR, "labels.txt")
+
+log_file = os.path.join(BASE_DIR, "gesture_log.csv")
 
 # Create CSV file with headers if not present
 if not os.path.exists(log_file):
@@ -22,54 +29,77 @@ if not os.path.exists(log_file):
         writer.writerow(["Timestamp", "Gesture", "FaceName", "SafeHouseMode", "Message"])
 
 
+offset = 20
+imgSize = 300
+
 # ========================== CAMERA & DETECTORS ==========================
 cap = cv2.VideoCapture(0)
 hand_detector = HandDetector(maxHands=1)
 
-# ========================== FACE RECOGNITION ==========================
-faces_path = r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Data\faces"
-images = []
-classNames = []
-if not os.path.exists(faces_path):
-    os.makedirs(faces_path) 
+# ========================== GESTURE CLASSIFIER (Keras .h5) ==========================
+classifier = Classifier(KERAS_MODEL_PATH, LABELS_PATH)
 
-# Load faces from subfolders (Ayush, Mheet, etc.)
-for person_name in os.listdir(faces_path):
-    person_folder = os.path.join(faces_path, person_name)
-    if not os.path.isdir(person_folder):
-        continue
-    for img_file in os.listdir(person_folder):
-        img_path = os.path.join(person_folder, img_file)
-        curImg = cv2.imread(img_path)
-        if curImg is None:
-            continue
-        images.append(curImg)
-        classNames.append(person_name)
-
-def findEncodings(images):
-    encodeList = []
-    for img in images:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        encodings = face_recognition.face_encodings(img)
-        if encodings:
-            encodeList.append(encodings[0])
-    return encodeList
-
-encodeListKnown = findEncodings(images)
-
-# ========================== GESTURE CLASSIFIER ==========================
-classifier = Classifier(
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\keras_model.h5",
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt"
-)
-
-with open(r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt", "r") as f:
+with open(LABELS_PATH, "r") as f:
     labels = [line.strip() for line in f.readlines()]
 
 labels = [l.split(maxsplit=1)[-1] if len(l.split()) > 1 else l for l in labels]
 
-offset = 20
-imgSize = 300
+# ========================== FACE RECOGNITION (OpenCV LBPH) ==========================
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+face_recognizer = None
+face_id_to_name = {}
+
+
+def train_face_recognizer():
+    global face_recognizer, face_id_to_name
+
+    samples = []
+    labels_ids = []
+    face_id_to_name = {}
+    current_id = 0
+
+    # helper to load faces from a root directory where each subfolder is a person
+    def load_from_root(root_dir, samples_acc, labels_acc, id_to_name, start_id):
+        current_id_local = start_id
+        if not os.path.isdir(root_dir):
+            return samples_acc, labels_acc, id_to_name, current_id_local
+        for person_name in os.listdir(root_dir):
+            person_folder = os.path.join(root_dir, person_name)
+            if not os.path.isdir(person_folder):
+                continue
+
+            face_id = current_id_local
+            id_to_name[face_id] = person_name
+            current_id_local += 1
+
+            for img_file in os.listdir(person_folder):
+                img_path = os.path.join(person_folder, img_file)
+                img = cv2.imread(img_path)
+                if img is None:
+                    continue
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+                for (x, y, w, h) in faces:
+                    roi_gray = gray[y : y + h, x : x + w]
+                    roi_resized = cv2.resize(roi_gray, (200, 200))
+                    samples_acc.append(roi_resized)
+                    labels_acc.append(face_id)
+        return samples_acc, labels_acc, id_to_name, current_id_local
+
+    # load faces from main Data/faces and extra not_used_face_data
+    samples, labels_ids, face_id_to_name, current_id = load_from_root(
+        FACES_DIR, samples, labels_ids, face_id_to_name, current_id
+    )
+    samples, labels_ids, face_id_to_name, current_id = load_from_root(
+        EXTRA_FACES_DIR, samples, labels_ids, face_id_to_name, current_id
+    )
+
+    if samples:
+        face_recognizer = cv2.face.LBPHFaceRecognizer_create()
+        face_recognizer.train(samples, np.array(labels_ids))
+
+
+train_face_recognizer()
 
 # ========================== TWILIO SETUP ==========================
 account_sid = "ACa8c3a6ec4e9809e86bd009471a4a4473"
@@ -100,6 +130,7 @@ siren_path = os.path.join(os.getcwd(), "siren.mp3")
 safehouse_mode = False
 unknown_start_time = 0
 unknown_hold_duration = 3  
+captured_once = False
 
 # ========================== UTILITY FUNCTIONS ==========================
 def log_event(gesture, face_name, message=""):
@@ -170,30 +201,30 @@ def trigger_actions(label):
         return
     last_trigger_time[gesture_name] = now
 
-    # ============================ SAFEHOUSE CONTROL (Only Mheet) ============================
+    # ============================ SAFEHOUSE CONTROL (Only Pratham) ============================
     if gesture_name == "ThumbsUp":
         if last_face_label == "Pratham":
             safehouse_mode = True
             unknown_start_time = 0
-            set_status("SafeHouse Mode ON (Authorized: Mheet)", 5)
+            set_status("SafeHouse Mode ON (Authorized: Pratham)", 5)
             log_event("ThumbsUp", last_face_label, "SafeHouse Mode turned ON")
         else:
             set_status("Access Denied: Only Mheet can turn ON SafeHouse Mode", 5)
             log_event("ThumbsUp", last_face_label, "Access Denied")
 
     elif gesture_name == "ThumbsDown":
-        if last_face_label == "Mheet":
+        if last_face_label == "Pratham":
             safehouse_mode = False
-            set_status("SafeHouse Mode OFF (Authorized: Mheet)", 5)
+            set_status("SafeHouse Mode OFF (Authorized: Pratham)", 5)
             unknown_start_time = 0
             log_event("ThumbsDown", last_face_label, "SafeHouse Mode turned OFF")
         else:
-            set_status("Access Denied: Only Mheet can turn OFF SafeHouse Mode", 5)
+            set_status("Access Denied: Only Pratham can turn OFF SafeHouse Mode", 5)
             log_event("ThumbsDown", last_face_label, "Access Denied")
 
     elif gesture_name == "Help":
         set_status("HELP triggered", 5)
-        threading.Thread(target=safe_play, args=(alarm_path,), daemon=True).start()
+        threading.Thread(target=safe_play, args=(danger_path,), daemon=True).start()
         async_send_sms(owner_number, "🚨 HELP detected! Immediate assistance may be required.")
         log_event("Help", last_face_label, "HELP gesture triggered")
 
@@ -232,39 +263,44 @@ while True:
         detected_region = (x, y, w, h)
         region_type = "hand"
 
-# ----- Run face recognition every 5th frame (always, even with hands)
-    frame_count += 1
-    if frame_count % 5 == 0:
-        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
-        imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-        facesCurFrame = face_recognition.face_locations(imgS)
-        encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
+    # -------- FACE RECOGNITION (every 5 frames) --------
+    if face_recognizer is not None and frame_count % 5 == 0:
+        gray_full = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray_full, 1.3, 5)
 
-        if facesCurFrame:
-            for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
-                matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
-                faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
-                matchIndex = np.argmin(faceDis)
+        if len(faces) > 0:
+            # use first detected face
+            (x, y, w, h) = faces[0]
+            roi_gray = gray_full[y : y + h, x : x + w]
+            roi_resized = cv2.resize(roi_gray, (200, 200))
+            label_id, confidence = face_recognizer.predict(roi_resized)
 
-                if matches[matchIndex]:
-                    name = classNames[matchIndex]
-                    last_face_label = name
-                    last_face_location = faceLoc
-                else:
-                    last_face_label = "Unknown"
-                    last_face_location = faceLoc
+            # smaller confidence value means better match in LBPH
+            # use a stricter threshold so non‑trained faces become Unknown
+            if label_id in face_id_to_name and confidence < 60:
+                last_face_label = face_id_to_name[label_id]
+            else:
+                last_face_label = "Unknown"
+
+            last_face_location = (x, y, w, h)
         else:
             last_face_label = None
             last_face_location = None
 
 
     # ---- Draw last known face box every frame ----
-    if last_face_location is not None:
-        y1, x2, y2, x1 = last_face_location
-        y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-        cv2.rectangle(imgOutput, (x1, y1), (x2, y2), (255, 0, 255), 2)
-        cv2.putText(imgOutput, last_face_label, (x1, y2 + 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 255), 2)
+    if last_face_location is not None and last_face_label is not None:
+        x, y, w, h = last_face_location
+        cv2.rectangle(imgOutput, (x, y), (x + w, y + h), (255, 0, 255), 2)
+        cv2.putText(
+            imgOutput,
+            last_face_label,
+            (x, y + h + 25),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.75,
+            (255, 0, 255),
+            2,
+        )
 
     # ================= SAFEHOUSE: unknown person hold detection (one-time alert + limited capture) =================
 
@@ -289,6 +325,7 @@ while True:
                         time.sleep(0.3) 
 
                     # ---- Send alerts only once ----
+                    threading.Thread(target=safe_play, args=(danger_path,), daemon=True).start()
                     async_send_sms(owner_number, "Unknown person detected during SafeHouse Mode! 5 images captured.")
                     async_send_sms(police_number, "Possible intrusion detected at SafeHouse.")
                     async_make_call(owner_number, "Unknown person detected during SafeHouse Mode. Authorities have been notified.")

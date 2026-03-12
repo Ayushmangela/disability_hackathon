@@ -1,5 +1,6 @@
-0 Call
-1 Danger
-2 Help
+0 Help
+1 ayush
+2 ThumbsUp
 3 ThumbsDown
-4 ThumbsUp
+4 Danger
+5 Call
