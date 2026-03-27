@@ -7,3 +7,8 @@ encodings.pkl
 gesture_log.csv
 *.wav
 *.mp3
+
+# Added
+venv/
+.env
+.DS_Store

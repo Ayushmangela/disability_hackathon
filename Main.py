@@ -4,7 +4,7 @@ from cvzone.ClassificationModule import Classifier
 import numpy as np
 import math
 import time
-from playsound import playsound    
+from playsound3 import playsound    
 from twilio.rest import Client   
 import face_recognition
 import os
@@ -27,11 +27,11 @@ cap = cv2.VideoCapture(0)
 hand_detector = HandDetector(maxHands=1)
 
 # ========================== FACE RECOGNITION ==========================
-faces_path = r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Data\faces"
+faces_path = os.path.join(os.getcwd(), "Data", "faces")
 images = []
 classNames = []
 if not os.path.exists(faces_path):
-    os.makedirs(faces_path) 
+    os.makedirs(faces_path)
 
 # Load faces from subfolders (Ayush, Mheet, etc.)
 for person_name in os.listdir(faces_path):
@@ -59,11 +59,11 @@ encodeListKnown = findEncodings(images)
 
 # ========================== GESTURE CLASSIFIER ==========================
 classifier = Classifier(
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\keras_model.h5",
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt"
+    os.path.join(os.getcwd(), "Model", "keras_model.h5"),
+    os.path.join(os.getcwd(), "Model", "labels.txt")
 )
 
-with open(r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt", "r") as f:
+with open(os.path.join(os.getcwd(), "Model", "labels.txt"), "r") as f:
     labels = [line.strip() for line in f.readlines()]
 
 labels = [l.split(maxsplit=1)[-1] if len(l.split()) > 1 else l for l in labels]
@@ -170,30 +170,30 @@ def trigger_actions(label):
         return
     last_trigger_time[gesture_name] = now
 
-    # ============================ SAFEHOUSE CONTROL (Only Mheet) ============================
+    # ============================ SAFEHOUSE CONTROL (Only Pratham) ============================
     if gesture_name == "ThumbsUp":
         if last_face_label == "Pratham":
             safehouse_mode = True
             unknown_start_time = 0
-            set_status("SafeHouse Mode ON (Authorized: Mheet)", 5)
+            set_status("SafeHouse Mode ON (Authorized: Pratham)", 5)
             log_event("ThumbsUp", last_face_label, "SafeHouse Mode turned ON")
         else:
             set_status("Access Denied: Only Mheet can turn ON SafeHouse Mode", 5)
             log_event("ThumbsUp", last_face_label, "Access Denied")
 
     elif gesture_name == "ThumbsDown":
-        if last_face_label == "Mheet":
+        if last_face_label == "Pratham":
             safehouse_mode = False
-            set_status("SafeHouse Mode OFF (Authorized: Mheet)", 5)
+            set_status("SafeHouse Mode OFF (Authorized: Pratham)", 5)
             unknown_start_time = 0
             log_event("ThumbsDown", last_face_label, "SafeHouse Mode turned OFF")
         else:
-            set_status("Access Denied: Only Mheet can turn OFF SafeHouse Mode", 5)
+            set_status("Access Denied: Only Pratham can turn OFF SafeHouse Mode", 5)
             log_event("ThumbsDown", last_face_label, "Access Denied")
 
     elif gesture_name == "Help":
         set_status("HELP triggered", 5)
-        threading.Thread(target=safe_play, args=(alarm_path,), daemon=True).start()
+        threading.Thread(target=safe_play, args=(danger_path,), daemon=True).start()
         async_send_sms(owner_number, "🚨 HELP detected! Immediate assistance may be required.")
         log_event("Help", last_face_label, "HELP gesture triggered")
 
@@ -289,6 +289,7 @@ while True:
                         time.sleep(0.3) 
 
                     # ---- Send alerts only once ----
+                    threading.Thread(target=safe_play, args=(danger_path,), daemon=True).start()
                     async_send_sms(owner_number, "Unknown person detected during SafeHouse Mode! 5 images captured.")
                     async_send_sms(police_number, "Possible intrusion detected at SafeHouse.")
                     async_make_call(owner_number, "Unknown person detected during SafeHouse Mode. Authorities have been notified.")

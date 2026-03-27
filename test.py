@@ -4,7 +4,7 @@ from cvzone.ClassificationModule import Classifier
 import numpy as np
 import math
 import time
-from playsound import playsound    
+from playsound3 import playsound    
 from twilio.rest import Client   
 import face_recognition
 import os
@@ -15,7 +15,7 @@ cap = cv2.VideoCapture(0)
 hand_detector = HandDetector(maxHands=1)
 
 # ========================== FACE RECOGNITION ==========================
-faces_path = r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Data\faces" #sub folder for each person 
+faces_path = os.path.join(os.getcwd(), "Data", "faces") #sub folder for each person 
 images = []
 classNames = []
 if not os.path.exists(faces_path):  #Checks if the face data folder exists. if not then creates it 
@@ -57,11 +57,11 @@ encodeListKnown = findEncodings(images) # find encoding for the given image face
 
 # ========================== GESTURE CLASSIFIER ==========================
 classifier = Classifier(
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\keras_model.h5",
-    r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt"
+    os.path.join(os.getcwd(), "Model", "keras_model.h5"),
+    os.path.join(os.getcwd(), "Model", "labels.txt")
 )
 
-with open(r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Model\labels.txt", "r") as f:
+with open(os.path.join(os.getcwd(), "Model", "labels.txt"), "r") as f:
     labels = [line.strip() for line in f.readlines()]
 
 labels = [l.split(maxsplit=1)[-1] if len(l.split()) > 1 else l for l in labels]  # their is number + name then split
@@ -104,7 +104,7 @@ unknown_hold_duration = 3  # If the unknown face persists for >3 seconds, trigge
 def safe_play(path):
     if os.path.isfile(path): # Checks whether the given file (like "alarm.mp3") actually exists on disk.
         try:
-            from playsound import playsound
+            from playsound3 import playsound
             playsound(path)
         except:   # Runs the sound in a safe try-except block — so even if playback fails (e.g., sound driver issue), the program doesn’t crash.
             pass

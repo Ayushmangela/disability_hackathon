@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SafeHomeCam — Intelligent Home Security Dashboard">
+    <title>SafeHomeCam — Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="header">
+    <div class="header-brand">
+        <div class="header-logo">🛡️</div>
+        <div>
+            <div class="header-title">SafeHomeCam</div>
+            <div class="header-subtitle">Intelligent Home Security</div>
+        </div>
+    </div>
+    <div class="header-right">
+        <button class="header-btn" id="cam-toggle-btn" title="Toggle Camera">
+            <span id="cam-icon">📹</span> <span id="cam-text">Camera ON</span>
+        </button>
+        <span class="header-clock" id="clock">--:--:--</span>
+        <div class="header-status-dot" title="System Active"></div>
+    </div>
+</header>
+
+<!-- ============ DASHBOARD ============ -->
+<main class="dashboard">
+
+    <!-- ===== TOP ROW: Video + Status ===== -->
+    <div class="top-row">
+
+        <!-- Live Video -->
+        <section class="card video-card">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <div class="card-title"><span class="card-title-icon">📹</span> Live Camera Feed</div>
+                    <button class="small-btn" onclick="reloadVideo()" title="Refresh video stream">🔄 Refresh Feed</button>
+                </div>
+                <span class="fps-text" id="fps-label">-- FPS</span>
+            </div>
+            <div class="video-container">
+                <img class="video-feed" id="video-feed" src="/video_feed" alt="Live camera feed">
+                <div class="video-overlay-badge"><span class="live-dot"></span> LIVE</div>
+                <div class="video-fps-badge" id="fps-badge">-- FPS</div>
+            </div>
+        </section>
+
+        <!-- Status Sidebar -->
+        <div class="status-panel">
+            <!-- Gesture -->
+            <div class="status-card" id="gesture-card">
+                <div class="status-label">🤚 Gesture Detected</div>
+                <div class="status-value gesture" id="gesture-value">Waiting…</div>
+                <div class="hold-bar-container">
+                    <div class="hold-bar" id="hold-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <!-- Face -->
+            <div class="status-card" id="face-card">
+                <div class="status-label">👤 Face Recognized</div>
+                <div class="status-value face" id="face-value">No face</div>
+            </div>
+            <!-- SafeHouse -->
+            <div class="status-card" id="safehouse-card">
+                <div class="status-label">🏠 SafeHouse Mode</div>
+                <div id="safehouse-value">
+                    <span class="safehouse-badge off" id="safehouse-badge"><span>●</span> OFF</span>
+                </div>
+            </div>
+
+            <!-- ===== SafeVoiceMode ===== -->
+            <div class="status-card voice-card" id="voice-card">
+                <div class="status-label">🎙️ SafeVoiceMode</div>
+                <div class="voice-row">
+                    <span class="safevoice-badge off" id="safevoice-badge"><span>●</span> OFF</span>
+                    <button class="voice-btn" id="voice-btn" title="Start listening">
+                        <span class="voice-btn-icon" id="voice-btn-icon">🎤</span>
+                    </button>
+                </div>
+                <div class="voice-status" id="voice-status">Click mic to start listening</div>
+                <div class="voice-last-cmd" id="voice-last-cmd"></div>
+                
+                <div class="voice-commands-ref">
+                    <div class="voice-ref-title">Voice Commands:</div>
+                    <div class="voice-ref-grid">
+                        <span class="voice-ref-tag tag-toggle">"<span id="ref-activation-word">Blue Mango</span>" — Toggle</span>
+                        <span class="voice-ref-tag tag-help">"Help" — Alert</span>
+                        <span class="voice-ref-tag tag-call">"Call" — Emergency</span>
+                        <span class="voice-ref-tag tag-danger">"Danger" — SOS</span>
+                        <span class="voice-ref-tag tag-thumbsup">"Thumbs Up" — SafeHouse ON</span>
+                        <span class="voice-ref-tag tag-thumbsdown">"Thumbs Down" — SafeHouse OFF</span>
+                        <span class="voice-ref-tag tag-care">"Get Water" — SMS</span>
+                        <span class="voice-ref-tag tag-care">"I'm Hungry" — SMS</span>
+                        <span class="voice-ref-tag tag-care">"Get My Medicines" — SMS</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert -->
+            <div class="status-card" id="alert-card">
+                <div class="status-label">⚡ System Status</div>
+                <div class="status-value" id="alert-value" style="color: var(--text-muted); font-size: 1rem;">Monitoring…</div>
+            </div>
+
+            <!-- Medicine Reminders -->
+            <div class="status-card reminder-card">
+                <div class="status-label">💊 Medicine Reminders</div>
+                <div class="reminder-form">
+                    <div class="reminder-input-group">
+                        <label>Medicine Name</label>
+                        <input type="text" id="rem-name" class="reminder-input" placeholder="e.g. Paracetamol">
+                    </div>
+                    <div class="reminder-input-group">
+                        <label>Time</label>
+                        <input type="time" id="rem-time" class="reminder-input">
+                    </div>
+                    <div class="reminder-input-group">
+                        <label>Recurrence</label>
+                        <select id="rem-recurrence" class="reminder-input">
+                            <option value="once">Once</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">For 1 Week</option>
+                        </select>
+                    </div>
+                    <button class="reminder-btn" onclick="addReminder()">Add Reminder</button>
+                </div>
+                <div class="reminder-list" id="reminder-list">
+                    <!-- Reminders will appear here -->
+                    <div class="reminder-empty">No reminders set</div>
+                </div>
+            </div>
+
+            <!-- Event Log (inside right panel) -->
+            <div class="card log-card-inline" id="log-section">
+                <div class="card-header collapsible-header" onclick="toggleSection('log')">
+                    <div class="card-title"><span class="card-title-icon">📋</span> Event Log <span class="badge" id="log-count">0</span></div>
+                    <span class="collapse-arrow" id="log-arrow">▸</span>
+                </div>
+                <div class="collapsible-body" id="log-content" style="display:none;">
+                    <div class="log-scroll" id="log-scroll">
+                        <table class="log-table">
+                            <thead>
+                                <tr><th>Time</th><th>Gesture</th><th>Face</th><th>SafeHouse</th><th>Message</th></tr>
+                            </thead>
+                            <tbody id="log-body">
+                                <tr><td colspan="5" class="log-empty">No events recorded yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===== COLLAPSIBLE: Captured Frames ===== -->
+    <section class="card collapsible-card" id="captures-section">
+        <div class="card-header collapsible-header" onclick="toggleSection('captures')">
+            <div class="card-title"><span class="card-title-icon">📸</span> Captured Frames <span class="badge" id="captures-count">0</span></div>
+            <span class="collapse-arrow" id="captures-arrow">▸</span>
+        </div>
+        <div class="collapsible-body" id="captures-content" style="display:none;">
+            <div class="card-body">
+                <div class="captures-grid" id="captures-grid">
+                    <div class="captures-empty">No captures yet</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ============ LIGHTBOX ============ -->
+<div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close" title="Close">✕</button>
+    <img id="lightbox-img" src="" alt="Captured frame">
+</div>
+
+<!-- ============ VOICE COMMAND TOAST ============ -->
+<div class="voice-toast" id="voice-toast"></div>
+
+<!-- ============ JS ============ -->
+<script>
+(function() {
+
+    // ---- Clock ----
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').textContent =
+            String(now.getHours()).padStart(2,'0') + ':' +
+            String(now.getMinutes()).padStart(2,'0') + ':' +
+            String(now.getSeconds()).padStart(2,'0');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ---- Collapsible Sections ----
+    window.toggleSection = function(id) {
+        const content = document.getElementById(id + '-content');
+        const arrow   = document.getElementById(id + '-arrow');
+        const isOpen  = content.style.display !== 'none';
+        content.style.display = isOpen ? 'none' : 'block';
+        arrow.textContent     = isOpen ? '▸' : '▾';
+        arrow.classList.toggle('open', !isOpen);
+    };
+
+    // ---- Status Polling ----
+    const gestureValue   = document.getElementById('gesture-value');
+    const faceValue      = document.getElementById('face-value');
+    const safehouseBadge = document.getElementById('safehouse-badge');
+    const safevoiceBadge = document.getElementById('safevoice-badge');
+    const alertValue     = document.getElementById('alert-value');
+    const holdBar        = document.getElementById('hold-bar');
+    const fpsLabel       = document.getElementById('fps-label');
+    const fpsBadge       = document.getElementById('fps-badge');
+    const gestureCard    = document.getElementById('gesture-card');
+
+    const camBtn       = document.getElementById('cam-toggle-btn');
+    const camIcon      = document.getElementById('cam-icon');
+    const camText      = document.getElementById('cam-text');
+
+    function pollStatus() {
+        fetch('/api/status').then(r => r.json()).then(data => {
+            // Camera
+            if (data.camera_enabled) {
+                camBtn.classList.remove('off');
+                camIcon.textContent = '📹';
+                camText.textContent = 'Camera ON';
+            } else {
+                camBtn.classList.add('off');
+                camIcon.textContent = '🚫';
+                camText.textContent = 'Camera OFF';
+            }
+
+            // Gesture
+            if (data.gesture) {
+                gestureValue.textContent = data.gesture;
+                gestureValue.className = 'status-value gesture';
+                gestureCard.style.borderColor = 'rgba(0, 212, 255, 0.25)';
+            } else {
+                gestureValue.textContent = 'Waiting…';
+                gestureValue.className = 'status-value';
+                gestureValue.style.color = 'var(--text-muted)';
+                gestureCard.style.borderColor = '';
+            }
+
+            // Hold bar
+            holdBar.style.width = Math.min(100, Math.round((data.hold_pct || 0) * 100)) + '%';
+
+            // Face
+            if (data.face) {
+                faceValue.textContent = data.face;
+                faceValue.className = data.face === 'Unknown' ? 'status-value alert' : 'status-value face';
+            } else {
+                faceValue.textContent = 'No face';
+                faceValue.className = 'status-value';
+                faceValue.style.color = 'var(--text-muted)';
+            }
+
+            // SafeHouse
+            if (data.safehouse) {
+                safehouseBadge.className = 'safehouse-badge on';
+                safehouseBadge.innerHTML = '<span>●</span> ACTIVE';
+            } else {
+                safehouseBadge.className = 'safehouse-badge off';
+                safehouseBadge.innerHTML = '<span>●</span> OFF';
+            }
+
+            // SafeVoiceMode
+            if (data.safe_voice_mode) {
+                safevoiceBadge.className = 'safevoice-badge on';
+                safevoiceBadge.innerHTML = '<span>●</span> ACTIVE';
+            } else {
+                safevoiceBadge.className = 'safevoice-badge off';
+                safevoiceBadge.innerHTML = '<span>●</span> OFF';
+            }
+
+            // Alert
+            if (data.status) {
+                alertValue.textContent = data.status;
+                alertValue.style.color = 'var(--accent-red)';
+            } else {
+                alertValue.textContent = 'Monitoring…';
+                alertValue.style.color = 'var(--text-muted)';
+            }
+
+            // FPS
+            if (data.fps !== undefined) {
+                fpsLabel.textContent = data.fps + ' FPS';
+                fpsBadge.textContent = data.fps + ' FPS';
+            }
+        }).catch(() => {});
+    }
+    // ---- Video Reload ----
+    window.reloadVideo = function() {
+        console.log('Reloading video feed...');
+        const video = document.getElementById('video-feed');
+        // Add timestamp to force a new request
+        video.src = '/video_feed?t=' + new Date().getTime();
+    };
+
+    setInterval(pollStatus, 500);
+    // ---- Video Error Handling ----
+    const videoFeed = document.getElementById('video-feed');
+    videoFeed.onerror = function() {
+        console.error('Video feed failed to load.');
+        alertValue.textContent = '⚠️ Video Stream Error. Try refreshing.';
+        alertValue.style.color = 'var(--accent-red)';
+    };
+
+    pollStatus();
+
+    // ---- Event Log ----
+    const logBody  = document.getElementById('log-body');
+    const logCount = document.getElementById('log-count');
+
+    function tagClass(g) {
+        if (!g) return 'tag-unknown';
+        const k = g.toLowerCase().replace(/\s/g, '');
+        return { help:'tag-help', call:'tag-call', danger:'tag-danger',
+                 thumbsup:'tag-thumbsup', thumbsdown:'tag-thumbsdown',
+                 voicehelp:'tag-help', voicecall:'tag-call', voicedanger:'tag-danger',
+                 voicethumbsup:'tag-thumbsup', voicethumbsdown:'tag-thumbsdown',
+                 voicewater:'tag-care', voicehungry:'tag-care', voicemedicine:'tag-care',
+                 voicecommand:'tag-voice' }[k] || 'tag-unknown';
+    }
+
+    function pollLogs() {
+        fetch('/api/logs').then(r => r.json()).then(entries => {
+            logCount.textContent = entries.length;
+            if (!entries.length) {
+                logBody.innerHTML = '<tr><td colspan="5" class="log-empty">No events recorded yet</td></tr>';
+                return;
+            }
+            logBody.innerHTML = entries.map(e =>
+                `<tr>
+                    <td>${e.Timestamp||'—'}</td>
+                    <td><span class="log-gesture-tag ${tagClass(e.Gesture)}">${e.Gesture||'—'}</span></td>
+                    <td>${e.FaceName||'—'}</td>
+                    <td>${e.SafeHouseMode||'—'}</td>
+                    <td>${e.Message||''}</td>
+                </tr>`
+            ).join('');
+        }).catch(() => {});
+    }
+    setInterval(pollLogs, 3000);
+    pollLogs();
+
+    // ---- Captures Gallery ----
+    const capturesGrid  = document.getElementById('captures-grid');
+    const capturesCount = document.getElementById('captures-count');
+
+    function pollCaptures() {
+        fetch('/api/captures').then(r => r.json()).then(files => {
+            capturesCount.textContent = files.length;
+            if (!files.length) {
+                capturesGrid.innerHTML = '<div class="captures-empty">No captures yet</div>';
+                return;
+            }
+            capturesGrid.innerHTML = files.map(f =>
+                `<div class="capture-thumb" onclick="openLightbox('/captures/${f}')">
+                    <img src="/captures/${f}" alt="${f}" loading="lazy">
+                    <div class="capture-thumb-overlay">${f}</div>
+                </div>`
+            ).join('');
+        }).catch(() => {});
+    }
+    setInterval(pollCaptures, 10000);
+    pollCaptures();
+
+    // ---- Lightbox ----
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+
+    window.openLightbox = function(src) {
+        lightboxImg.src = src;
+        lightbox.classList.add('active');
+    };
+
+    document.getElementById('lightbox-close').addEventListener('click', () => {
+        lightbox.classList.remove('active'); lightboxImg.src = '';
+    });
+    lightbox.addEventListener('click', e => {
+        if (e.target === lightbox) { lightbox.classList.remove('active'); lightboxImg.src = ''; }
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { lightbox.classList.remove('active'); lightboxImg.src = ''; }
+    });
+
+    // ================================================================
+    //  SAFEVOICEMODE — Web Speech API
+    // ================================================================
+    const voiceBtn     = document.getElementById('voice-btn');
+    const voiceBtnIcon = document.getElementById('voice-btn-icon');
+    const voiceStatus  = document.getElementById('voice-status');
+    const voiceLastCmd = document.getElementById('voice-last-cmd');
+    const voiceToast   = document.getElementById('voice-toast');
+
+    let recognition = null;
+    let isListening = false;
+
+    // Check browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        voiceStatus.textContent = '⚠️ Speech API not supported (use Chrome/Edge)';
+        voiceBtn.disabled = true;
+        voiceBtn.style.opacity = '0.4';
+    } else {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+        recognition.maxAlternatives = 3;
+
+        recognition.onstart = function() {
+            isListening = true;
+            voiceBtn.classList.add('listening');
+            voiceBtnIcon.textContent = '🔴';
+            voiceStatus.textContent = '🎧 Listening… say "Blue mango" to activate';
+        };
+
+        recognition.onresult = function(event) {
+            // Process only the latest result
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    const transcript = event.results[i][0].transcript.toLowerCase().trim();
+                    console.log('[Voice] Heard:', transcript);
+                    voiceLastCmd.textContent = '🗣️ "' + transcript + '"';
+
+                    // Send to backend
+                    sendVoiceCommand(transcript);
+                }
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.log('[Voice] Error:', event.error);
+            if (event.error === 'no-speech') {
+                // Just ignore, keep listening
+                return;
+            }
+            if (event.error === 'aborted') return;
+            voiceStatus.textContent = '⚠️ Error: ' + event.error;
+        };
+
+        recognition.onend = function() {
+            // Auto-restart if we want to keep listening
+            if (isListening) {
+                try { recognition.start(); } catch(e) {}
+            } else {
+                voiceBtn.classList.remove('listening');
+                voiceBtnIcon.textContent = '🎤';
+                voiceStatus.textContent = 'Click mic to start listening';
+            }
+        };
+    }
+
+    // Toggle listening
+    voiceBtn.addEventListener('click', function() {
+        if (!recognition) return;
+
+        if (isListening) {
+            isListening = false;
+            recognition.stop();
+            voiceBtn.classList.remove('listening');
+            voiceBtnIcon.textContent = '🎤';
+            voiceStatus.textContent = 'Click mic to start listening';
+        } else {
+            try {
+                recognition.start();
+            } catch(e) {
+                // Already started, restart
+                recognition.stop();
+                setTimeout(() => { try { recognition.start(); } catch(e2) {} }, 200);
+            }
+        }
+    });
+
+    // Send voice command to backend
+    function sendVoiceCommand(command) {
+        fetch('/api/voice_command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: command })
+        })
+        .then(r => r.json())
+        .then(data => {
+            console.log('[Voice] Response:', data);
+            showVoiceToast(data.message, data.action);
+
+            // Update voice status text
+            if (data.action === 'toggle_safevoice') {
+                if (data.safe_voice_mode) {
+                    voiceStatus.textContent = '🟢 SafeVoiceMode ACTIVE — say a command';
+                } else {
+                    voiceStatus.textContent = '🎧 Listening… say "Blue mango" to activate';
+                }
+            } else if (data.action === 'ignored') {
+                voiceStatus.textContent = '🎧 Say "Blue mango" to activate first';
+            } else if (['help', 'call', 'danger'].includes(data.action)) {
+                voiceStatus.textContent = '🚨 ' + data.message;
+                setTimeout(() => {
+                    voiceStatus.textContent = '🟢 SafeVoiceMode ACTIVE — say a command';
+                }, 3000);
+            } else if (['thumbsup', 'thumbsdown'].includes(data.action)) {
+                voiceStatus.textContent = '🏠 ' + data.message;
+                setTimeout(() => {
+                    voiceStatus.textContent = '🟢 SafeVoiceMode ACTIVE — say a command';
+                }, 3000);
+            } else if (['water', 'hungry', 'medicine'].includes(data.action)) {
+                voiceStatus.textContent = '📩 ' + data.message;
+                setTimeout(() => {
+                    voiceStatus.textContent = '🟢 SafeVoiceMode ACTIVE — say a command';
+                }, 3000);
+            }
+        })
+        .catch(err => {
+            console.error('[Voice] Error sending command:', err);
+        });
+    }
+
+    // Toast notification for voice commands
+    function showVoiceToast(message, action) {
+        voiceToast.textContent = message;
+        voiceToast.className = 'voice-toast show';
+        if (action === 'help' || action === 'danger') {
+            voiceToast.classList.add('toast-danger');
+        } else if (action === 'call') {
+            voiceToast.classList.add('toast-call');
+        } else if (action === 'toggle_safevoice') {
+            voiceToast.classList.add('toast-toggle');
+        } else if (action === 'thumbsup' || action === 'thumbsdown') {
+            voiceToast.classList.add('toast-safehouse');
+        } else if (action === 'water' || action === 'hungry' || action === 'medicine') {
+            voiceToast.classList.add('toast-care');
+        }
+        setTimeout(() => { voiceToast.className = 'voice-toast'; }, 4000);
+    }
+
+    // ================================================================
+    //  MEDICINE REMINDERS
+    // ================================================================
+    const reminderList = document.getElementById('reminder-list');
+    const remName = document.getElementById('rem-name');
+    const remTime = document.getElementById('rem-time');
+    const remRecurrence = document.getElementById('rem-recurrence');
+
+    function fetchReminders() {
+        fetch('/api/reminders').then(r => r.json()).then(data => {
+            if (!data.length) {
+                reminderList.innerHTML = '<div class="reminder-empty">No reminders set</div>';
+                return;
+            }
+            reminderList.innerHTML = data.map(r => `
+                <div class="reminder-item">
+                    <div class="reminder-item-info">
+                        <span class="reminder-item-name">${r.name}</span>
+                        <span class="reminder-item-meta">⏰ ${r.time} • ${r.recurrence}</span>
+                    </div>
+                    <button class="reminder-item-delete" onclick="deleteReminder('${r.id}')" title="Delete">✕</button>
+                </div>
+            `).join('');
+        }).catch(() => {});
+    }
+
+    window.addReminder = function() {
+        const name = remName.value.trim();
+        const time = remTime.value;
+        const recurrence = remRecurrence.value;
+
+        if (!name || !time) {
+            alert('Please fill in both name and time');
+            return;
+        }
+
+        fetch('/api/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, time, recurrence })
+        })
+        .then(r => r.json())
+        .then(() => {
+            remName.value = '';
+            remTime.value = '';
+            fetchReminders();
+        });
+    }
+
+    window.deleteReminder = function(id) {
+        fetch(`/api/reminders/${id}`, { method: 'DELETE' })
+        .then(() => fetchReminders());
+    }
+
+    // ---- Camera Toggle ----
+    camBtn.addEventListener('click', () => {
+        fetch('/api/camera/toggle', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            // UI will update on next poll
+        });
+    });
+
+    // Initial fetch
+    fetchReminders();
+    // Refresh list occasionally in case reminders were auto-deleted by backend
+    setInterval(fetchReminders, 30000);
+
+})();
+</script>
+
+</body>
+</html>

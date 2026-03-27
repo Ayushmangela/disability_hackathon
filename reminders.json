@@ -1,0 +1,16 @@
+[
+    {
+        "id": "b5fee622-e16e-4f97-8181-ed1bccd02766",
+        "name": "Paracetamol",
+        "time": "11:13",
+        "recurrence": "daily",
+        "created_at": "2026-03-13T00:27:42.701931"
+    },
+    {
+        "id": "e145c83a-818f-4846-aa2e-d9b7413e0133",
+        "name": "Insulin",
+        "time": "00:29",
+        "recurrence": "daily",
+        "created_at": "2026-03-13T00:28:13.800839"
+    }
+]

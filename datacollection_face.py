@@ -7,7 +7,7 @@ cap = cv2.VideoCapture(0)
 # Load OpenCV face detector
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-folder = r"C:\Users\prath\OneDrive\Desktop\SafeHomeCam\Data\faces\Mheet"
+folder = os.path.join(os.getcwd(), "Data", "faces", "Mheet")
 os.makedirs(folder, exist_ok=True)
 counter = 0
 imgSize = 300 
